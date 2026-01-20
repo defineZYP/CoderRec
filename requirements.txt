@@ -1,0 +1,9 @@
+transformers==4.51.3
+einops==0.8.1
+gin-config
+wandb
+accelerate
+pandas
+peft
+polars
+torch_geometric

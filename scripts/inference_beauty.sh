@@ -1,0 +1,1 @@
+python inference.py --config ./configs/decoder/beauty.json --pretrained_decoder_path ./model/rec/beauty.pt

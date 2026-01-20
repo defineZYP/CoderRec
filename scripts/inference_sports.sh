@@ -1,0 +1,1 @@
+python inference.py --config ./configs/decoder/sports.json --pretrained_decoder_path ./model/rec/sports.pt

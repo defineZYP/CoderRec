@@ -1,0 +1,1 @@
+python inference.py --config ./configs/decoder/instruments.json --pretrained_decoder_path ./model/rec/instruments.pt

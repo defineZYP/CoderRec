@@ -1,0 +1,63 @@
+import torch
+import numpy as np
+from collections import defaultdict
+
+@torch.no_grad
+def calculate_metrics(preds, topks=[5,10], return_score=False):
+    metrics = defaultdict(float)
+    # only one positive sample so recall equals to hr
+    for k in topks:
+        br = preds[preds <= k]
+        metrics[f"recall@{k}"] = len(br) / preds.shape[0]
+        metrics[f"ndcg@{k}"] = (1 / torch.log2(br + 1)).sum() / preds.shape[0]
+    if return_score:
+        score = 0
+        for k in metrics:
+            score += float(metrics[k])
+        return metrics, score
+    return metrics
+
+def wasserstein_distance(mean1, cov1, mean2, cov2):
+    ret = torch.sum((mean1 - mean2) * (mean1 - mean2), -1)
+    cov1_sqrt = torch.sqrt(torch.clamp(cov1, min=1e-24)) 
+    cov2_sqrt = torch.sqrt(torch.clamp(cov2, min=1e-24))
+    ret = ret + torch.sum((cov1_sqrt - cov2_sqrt) * (cov1_sqrt - cov2_sqrt), -1)
+
+    return ret
+
+def wasserstein_distance_matmul(mean1, cov1, mean2, cov2):
+    mean1_2 = torch.sum(mean1**2, -1, keepdim=True)
+    mean2_2 = torch.sum(mean2**2, -1, keepdim=True)
+    ret = -2 * torch.matmul(mean1, mean2.transpose(-1, -2)) + mean1_2 + mean2_2.transpose(-1, -2)
+
+    cov1_2 = torch.sum(cov1, -1, keepdim=True)
+    cov2_2 = torch.sum(cov2, -1, keepdim=True)
+    cov_ret = -2 * torch.matmul(torch.sqrt(torch.clamp(cov1, min=1e-24)), torch.sqrt(torch.clamp(cov2, min=1e-24)).transpose(-1, -2)) + cov1_2 + cov2_2.transpose(-1, -2)
+
+    return ret + cov_ret
+
+def kl_distance(mean1, cov1, mean2, cov2):
+    trace_part = torch.sum(cov1 / cov2, -1)
+    mean_cov_part = torch.sum((mean2 - mean1) / cov2 * (mean2 - mean1), -1)
+    determinant_part = torch.log(torch.prod(cov2, -1) / torch.prod(cov1, -1))
+
+    return (trace_part + mean_cov_part - mean1.shape[1] + determinant_part) / 2
+
+def kl_distance_matmul(mean1, cov1, mean2, cov2):
+    cov1_det = 1 / torch.prod(cov1, -1, keepdim=True)
+    cov2_det = torch.prod(cov2, -1, keepdim=True)
+    log_det = torch.log(torch.matmul(cov1_det, cov2_det.transpose(-1, -2)))
+
+    trace_sum = torch.matmul(1 / cov2, cov1.transpose(-1, -2))
+    mean_cov_part = torch.matmul((mean1 - mean2) ** 2, (1/cov2).transpose(-1, -2))
+
+    return (log_det + mean_cov_part + trace_sum - mean1.shape[-1]) / 2
+
+
+def d2s_gaussiannormal(distance, gamma):
+
+    return torch.exp(-gamma*distance)
+
+def d2s_1overx(distance):
+
+    return 1/(1+distance)
